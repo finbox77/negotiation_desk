@@ -1,0 +1,24 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.env
+.env.local
+.env*.local
+.DS_Store
+*.patch
+src/site-access.ts
+
+# Локальное объектное хранилище медиа (016): боевой вариант — S3, ссылки в БД
+.media-store/
+
+# Локальные проверки и браузерные скриншоты
+.cache/
+
+# Отдельное приложение «Стол переговоров» (apps/negotiation-desk):
+# сборка и локальные настройки не коммитятся, исходники — да.
+apps/negotiation-desk/dist/
+apps/negotiation-desk/.env.local
