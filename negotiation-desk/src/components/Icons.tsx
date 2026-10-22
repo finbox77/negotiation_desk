@@ -21,9 +21,18 @@ export type IconName =
   | 'install'
   | 'spark'
   | 'chevron'
+  | 'chevron-down'
   | 'lock'
   | 'info'
-  | 'building';
+  | 'building'
+  | 'attach'
+  | 'plus'
+  | 'pin'
+  | 'tree'
+  | 'trash'
+  | 'eraser'
+  | 'highlight'
+  | 'write';
 
 export function Icon({
   name,
@@ -166,6 +175,73 @@ export function Icon({
           <path d="m9 18 6-6-6-6" />
         </svg>
       );
+    case 'chevron-down':
+      return (
+        <svg {...common}>
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      );
+    case 'attach':
+      return (
+        <svg {...common}>
+          <path d="m21.4 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.9 8.8l-8.58 8.57a2 2 0 0 1-2.83-2.83l7.96-7.95" />
+        </svg>
+      );
+    case 'plus':
+      return (
+        <svg {...common}>
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      );
+    case 'pin':
+      return (
+        <svg {...common}>
+          <path d="M12 17v5" />
+          <path d="M9 3h6l-1 6 3 3v2H7v-2l3-3Z" />
+        </svg>
+      );
+    case 'tree':
+      return (
+        <svg {...common}>
+          <path d="M12 3v6" />
+          <path d="M5 21v-4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4" />
+          <rect x="9" y="2" width="6" height="5" rx="1.5" />
+          <rect x="2" y="15" width="6" height="5" rx="1.5" />
+          <rect x="16" y="15" width="6" height="5" rx="1.5" />
+          <path d="M12 15v-4M5 15v-2h14v2" />
+        </svg>
+      );
+    case 'trash':
+      return (
+        <svg {...common}>
+          <path d="M4 7h16" />
+          <path d="M10 11v6M14 11v6" />
+          <path d="M5 7l1 13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-13" />
+          <path d="M9 7V4h6v3" />
+        </svg>
+      );
+    case 'highlight':
+      return (
+        <svg {...common}>
+          <path d="m9 11-6 6v3h3l6-6" />
+          <path d="m13.5 6.5 4 4L21 7l-4-4Z" />
+          <path d="M3 21h18" />
+        </svg>
+      );
+    case 'write':
+      return (
+        <svg {...common}>
+          <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />
+          <path d="M8 9h8M8 12.5h5" />
+        </svg>
+      );
+    case 'eraser':
+      return (
+        <svg {...common}>
+          <path d="m13 5 6 6-8 8H7l-4-4 10-10a2.8 2.8 0 0 1 4 0Z" />
+          <path d="M21 21H7" />
+        </svg>
+      );
     case 'lock':
       return (
         <svg {...common}>
@@ -195,17 +271,25 @@ export function Icon({
 }
 
 /**
- * Знак приложения: круглый стол, места участников и жёлтая точка сигнала.
+ * Знак приложения: круглый стол, места участников и точка сигнала.
  * Тот же рисунок лежит в public/icons/icon.svg — иконка PWA и шапка совпадают.
+ *
+ * alert — интерактив: пока есть непрочитанные окна или новые сообщения,
+ * точка внутри эмблемки зелёная (с мягкой подсветкой), иначе жёлтая.
+ * Размеры и форма не меняются.
  */
-export function BrandMark({ size = 32 }: { size?: number }) {
+export function BrandMark({ size = 32, alert = false }: { size?: number; alert?: boolean }) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 512 512"
       role="img"
-      aria-label="Стол переговоров Simonix"
+      aria-label={
+        alert
+          ? 'Стол переговоров Simonix — есть непрочитанные сообщения'
+          : 'Стол переговоров Simonix'
+      }
     >
       <defs>
         <linearGradient id="desk-brand-bg" x1="0" y1="0" x2="1" y2="1">
@@ -225,7 +309,8 @@ export function BrandMark({ size = 32 }: { size?: number }) {
       />
       <circle cx="256" cy="256" r="44" fill="#f4f1ea" />
       <circle cx="134" cy="134" r="20" fill="#f4f1ea" />
-      <circle cx="378" cy="134" r="20" fill="#fde047" />
+      {alert && <circle cx="378" cy="134" r="30" fill="#34d399" opacity="0.35" className="brand-mark__halo" />}
+      <circle cx="378" cy="134" r="20" fill={alert ? '#34d399' : '#fde047'} />
       <circle cx="134" cy="378" r="20" fill="#f4f1ea" />
       <circle cx="378" cy="378" r="20" fill="#f4f1ea" />
     </svg>

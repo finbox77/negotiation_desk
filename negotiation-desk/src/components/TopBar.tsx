@@ -15,13 +15,23 @@ export default function TopBar({
   onInstall: () => void;
   canInstall: boolean;
 }) {
-  const { settings, snapshot, totalFresh, loading, refresh } = desk;
+  const { settings, snapshot, totalFresh, loading, refresh, hasUnread, windows, freshOf } = desk;
   const fromClients = snapshot?.totals.freshFromClients ?? 0;
+  // Непрочитанные окна и новые сообщения подсвечивают точку эмблемки.
+  const unreadWindows = windows.filter((w) => freshOf(w) > 0).length;
+  const alert = hasUnread || unreadWindows > 0;
 
   return (
     <header className="topbar">
-      <div className="topbar__brand">
-        <BrandMark size={30} />
+      <div
+        className="topbar__brand"
+        title={
+          alert
+            ? `Есть непрочитанные${unreadWindows > 0 ? ` окна: ${unreadWindows}` : ` сообщения: ${totalFresh}`}`
+            : 'Стол переговоров — новых сообщений нет'
+        }
+      >
+        <BrandMark size={30} alert={alert} />
         <div className="topbar__titles">
           <h1>Стол переговоров</h1>
           <p>Simonix · окно сделки</p>

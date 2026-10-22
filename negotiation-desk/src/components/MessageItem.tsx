@@ -10,19 +10,24 @@ export default function MessageItem({
   message,
   mine,
   showAuthor,
+  highlight = 'none',
 }: {
   message: DeskMessage;
   mine: boolean;
   showAuthor: boolean;
+  /** Подсветка выбранного участника: lit — его сообщения, dim — чужие. */
+  highlight?: 'none' | 'lit' | 'dim';
 }) {
   const restricted = message.requiredClearance < 3;
   const clearanceTitle = restricted
     ? `Видно с допуском ${message.requiredClearance} и выше (${CLEARANCE_LABEL[message.requiredClearance]})`
     : undefined;
+  const hlClass =
+    highlight === 'lit' ? ' is-lit' : highlight === 'dim' ? ' is-dim' : '';
 
   if (message.type === 'system') {
     return (
-      <div className="event">
+      <div className={`event${hlClass}`}>
         <span className="event__line" />
         <span className="event__body">
           <Icon name="info" size={13} />
@@ -36,7 +41,7 @@ export default function MessageItem({
   if (message.type === 'call_started' || message.type === 'call_ended') {
     const started = message.type === 'call_started';
     return (
-      <div className="event">
+      <div className={`event${hlClass}`}>
         <span className="event__line" />
         <span className={`event__body event__body--call ${started ? '' : 'is-ended'}`}>
           <Icon name={started ? 'phone' : 'phone-off'} size={13} />
@@ -49,7 +54,7 @@ export default function MessageItem({
   }
 
   return (
-    <article className={`msg ${mine ? 'msg--mine' : ''}`}>
+    <article className={`msg ${mine ? 'msg--mine' : ''}${hlClass}`}>
       {!mine && (
         <Avatar name={message.senderName} size={30} className={showAuthor ? '' : 'is-hidden'} />
       )}

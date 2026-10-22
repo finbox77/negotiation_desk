@@ -22,3 +22,7 @@ src/site-access.ts
 # сборка и локальные настройки не коммитятся, исходники — да.
 apps/negotiation-desk/dist/
 apps/negotiation-desk/.env.local
+
+# То же для автономной раскладки (negotiation-desk/ в этом репозитории).
+negotiation-desk/dist/
+negotiation-desk/.env.local

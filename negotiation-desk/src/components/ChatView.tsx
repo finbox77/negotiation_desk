@@ -1,13 +1,16 @@
-// components/ChatView.tsx — окно стола: шапка, лента сообщений, ввод.
+// components/ChatView.tsx — окно стола: мини-шапка вкладок, шапка, лента, ввод.
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { DragEvent } from 'react';
 import { dayLabel, dateKey, plural } from '../desk/format';
 import { disputeLabel, statusLabel } from '../desk/labels';
 import type { DeskMessage } from '../desk/types';
 import type { DeskController } from '../desk/useDesk';
+import ChatTabs from './ChatTabs';
 import Composer from './Composer';
 import { BrandMark, Icon, SignalDot } from './Icons';
 import MessageItem from './MessageItem';
+import StatusMenu from './StatusMenu';
 
 function EmptyDesk() {
   return (
@@ -58,6 +61,8 @@ export default function ChatView({
   onBack: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [statusMenu, setStatusMenu] = useState<{ x: number; y: number } | null>(null);
+  const [dropActive, setDropActive] = useState(false);
 
   const groups = useMemo(() => {
     const result: Array<{ key: string; label: string; items: DeskMessage[] }> = [];
@@ -79,14 +84,60 @@ export default function ChatView({
     return () => cancelAnimationFrame(frame);
   }, [desk.messages, desk.selectedId, desk.chatLoading]);
 
-  if (!desk.selectedTable) return <section className="panel chat chat--empty"><EmptyDesk /></section>;
+  if (!desk.selectedTable) {
+    return (
+      <section className="panel chat chat--empty">
+        <ChatTabs desk={desk} onDropUser={(key, userId) => desk.bindParticipant(key, userId)} />
+        <EmptyDesk />
+      </section>
+    );
+  }
 
   const table = desk.selectedTable;
   const signal = desk.signalOf(table);
   const restricted = (desk.viewer?.clearanceLevel ?? 3) > 1;
+  const closed = !desk.canWrite;
+  const highlightUser = desk.highlightUserId
+    ? desk.userById.get(desk.highlightUserId)
+    : null;
+
+  const readDrop = (event: DragEvent): string | null => {
+    const types: string[] = Array.from(event.dataTransfer.types ?? []);
+    if (!types.includes('application/x-desk-user') && !types.includes('text/plain')) return null;
+    return (
+      event.dataTransfer.getData('application/x-desk-user') ||
+      event.dataTransfer.getData('text/plain') ||
+      null
+    );
+  };
 
   return (
-    <section className="panel chat" aria-label={`Стол: ${table.title}`}>
+    <section
+      className={`panel chat ${dropActive ? 'is-drop' : ''}`}
+      aria-label={`Стол: ${table.title}`}
+      onDragOver={(event) => {
+        if (readDrop(event)) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'link';
+          setDropActive(true);
+        }
+      }}
+      onDragLeave={(event) => {
+        if (event.target === event.currentTarget) setDropActive(false);
+      }}
+      onDrop={(event) => {
+        const userId = readDrop(event);
+        setDropActive(false);
+        if (!userId || !desk.selectedId) return;
+        event.preventDefault();
+        desk.bindParticipant(desk.selectedId, userId);
+      }}
+    >
+      <ChatTabs
+        desk={desk}
+        onDropUser={(key, userId) => desk.bindParticipant(key, userId)}
+      />
+
       <header className="chat__head">
         <button
           type="button"
@@ -122,12 +173,51 @@ export default function ChatView({
           type="button"
           className="icon-btn"
           onClick={() => void desk.refresh()}
-          title="Обновить сообщения"
-          aria-label="Обновить сообщения"
+          title="Обновить чат"
+          aria-label="Обновить чат"
         >
           <Icon name="refresh" className={desk.chatLoading ? 'spin' : undefined} />
         </button>
+
+        <button
+          type="button"
+          className="icon-btn"
+          title="Статус и удаление чата"
+          aria-label="Меню чата"
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            setStatusMenu({ x: rect.right - 230, y: rect.bottom + 6 });
+          }}
+        >
+          <span className="hamburger" aria-hidden>
+            <i />
+            <i />
+            <i />
+          </span>
+        </button>
       </header>
+
+      {closed && (
+        <div className="chat__access-note chat__access-note--closed">
+          <Icon name="lock" size={13} />
+          Чат закрыт — отправка сообщений недоступна. Меню «≡» рядом с обновлением, чтобы снова
+          открыть.
+        </div>
+      )}
+
+      {highlightUser && (
+        <div className="chat__highlight-note">
+          <Icon name="highlight" size={13} />
+          <span>Подсвечены сообщения: {highlightUser.name}</span>
+          <button
+            type="button"
+            className="btn btn--small"
+            onClick={() => desk.setHighlightUserId(null)}
+          >
+            Снять
+          </button>
+        </div>
+      )}
 
       {restricted && (
         <div className="chat__access-note">
@@ -163,12 +253,18 @@ export default function ChatView({
               {group.items.map((message, index) => {
                 const previous = group.items[index - 1];
                 const showAuthor = !previous || previous.sender !== message.sender;
+                const highlight = desk.highlightUserId
+                  ? message.sender === desk.highlightUserId
+                    ? 'lit'
+                    : 'dim'
+                  : 'none';
                 return (
                   <MessageItem
                     key={message.id}
                     message={message}
                     mine={message.sender === desk.viewer?.id}
                     showAuthor={showAuthor}
+                    highlight={highlight}
                   />
                 );
               })}
@@ -177,7 +273,23 @@ export default function ChatView({
         )}
       </div>
 
+      {dropActive && (
+        <div className="chat__drop-hint">
+          <Icon name="users" size={15} />
+          Отпустите — участник будет привязан к окну «{table.title}»
+        </div>
+      )}
+
       <Composer desk={desk} />
+
+      {statusMenu && (
+        <StatusMenu
+          desk={desk}
+          x={statusMenu.x}
+          y={statusMenu.y}
+          onClose={() => setStatusMenu(null)}
+        />
+      )}
     </section>
   );
 }

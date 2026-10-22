@@ -15,6 +15,7 @@ import type {
   DemoProfileId,
   DeskMessage,
   DeskSnapshot,
+  DeskUser,
   MessageType,
   NegotiationStatus,
   Participant,
@@ -36,6 +37,10 @@ type DemoAuthor = {
   companyName: string;
   companyIsClient: boolean;
   roleLabel: string;
+  /** Уровень допуска: 1 — руководство, 3 — все сотрудники. */
+  clearanceLevel: number;
+  /** Сейчас в столе переговоров (ободок аватара зелёный). */
+  present: boolean;
 };
 
 type DemoParticipant = { userId: string; role: ParticipantRole };
@@ -81,6 +86,8 @@ const AUTHORS: Record<string, DemoAuthor> = {
     companyName: 'Технопарк Север',
     companyIsClient: true,
     roleLabel: 'директор',
+    clearanceLevel: 1,
+    present: true,
   },
   'u-demo-engineer': {
     id: 'u-demo-engineer',
@@ -89,6 +96,8 @@ const AUTHORS: Record<string, DemoAuthor> = {
     companyName: 'Технопарк Север',
     companyIsClient: true,
     roleLabel: 'инженер',
+    clearanceLevel: 2,
+    present: true,
   },
   'u-demo-manager': {
     id: 'u-demo-manager',
@@ -97,6 +106,8 @@ const AUTHORS: Record<string, DemoAuthor> = {
     companyName: 'Технопарк Север',
     companyIsClient: true,
     roleLabel: 'менеджер',
+    clearanceLevel: 2,
+    present: false,
   },
   'u-demo-customer': {
     id: 'u-demo-customer',
@@ -105,6 +116,8 @@ const AUTHORS: Record<string, DemoAuthor> = {
     companyName: 'Северный порт',
     companyIsClient: true,
     roleLabel: 'заказчик',
+    clearanceLevel: 1,
+    present: true,
   },
   'u-demo-vendor': {
     id: 'u-demo-vendor',
@@ -113,6 +126,8 @@ const AUTHORS: Record<string, DemoAuthor> = {
     companyName: 'Роботех СПб',
     companyIsClient: false,
     roleLabel: 'вендор',
+    clearanceLevel: 3,
+    present: true,
   },
   'u-demo-vendor-dir': {
     id: 'u-demo-vendor-dir',
@@ -121,6 +136,8 @@ const AUTHORS: Record<string, DemoAuthor> = {
     companyName: 'Роботех СПб',
     companyIsClient: false,
     roleLabel: 'директор вендора',
+    clearanceLevel: 2,
+    present: false,
   },
   'u-demo-bank': {
     id: 'u-demo-bank',
@@ -129,6 +146,8 @@ const AUTHORS: Record<string, DemoAuthor> = {
     companyName: 'Балтийский лизинг',
     companyIsClient: false,
     roleLabel: 'банк',
+    clearanceLevel: 2,
+    present: true,
   },
   'u-demo-logist': {
     id: 'u-demo-logist',
@@ -137,6 +156,8 @@ const AUTHORS: Record<string, DemoAuthor> = {
     companyName: 'Деловые Линии',
     companyIsClient: false,
     roleLabel: 'логистика',
+    clearanceLevel: 3,
+    present: false,
   },
   'u-demo-support': {
     id: 'u-demo-support',
@@ -145,6 +166,8 @@ const AUTHORS: Record<string, DemoAuthor> = {
     companyName: 'Simonix',
     companyIsClient: false,
     roleLabel: 'поддержка',
+    clearanceLevel: 2,
+    present: false,
   },
 };
 
@@ -669,6 +692,19 @@ export function demoViewer(profile: DemoProfileId): Viewer {
   };
 }
 
+/** Каталог всех участников демо-стола — для дерева, чатов и подсказок. */
+export function demoDirectory(viewer: Viewer): DeskUser[] {
+  return Object.values(AUTHORS).map((author) => ({
+    id: author.id,
+    name: author.name,
+    companyName: author.companyName,
+    companyIsClient: author.companyIsClient,
+    clearanceLevel:
+      author.id === viewer.id ? viewer.clearanceLevel : author.clearanceLevel,
+    present: author.present || author.id === viewer.id,
+  }));
+}
+
 function authorOf(userId: string): DemoAuthor {
   return (
     AUTHORS[userId] ?? {
@@ -678,6 +714,8 @@ function authorOf(userId: string): DemoAuthor {
       companyName: '—',
       companyIsClient: false,
       roleLabel: 'участник',
+      clearanceLevel: 3,
+      present: false,
     }
   );
 }
@@ -760,6 +798,7 @@ export function demoSnapshot(viewer: Viewer): DeskSnapshot {
       last,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
+      initiatorUserId: t.initiatorUserId,
     };
   });
 
@@ -795,6 +834,8 @@ export function demoCard(viewer: Viewer, tableId: string): TableCard | null {
       companyId: author.companyId,
       companyName: author.companyName,
       isInitiator: p.userId === table.initiatorUserId,
+      clearanceLevel: author.clearanceLevel,
+      present: author.present || p.userId === viewer.id,
     };
   });
 

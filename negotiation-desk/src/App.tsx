@@ -3,10 +3,14 @@
 // На широком экране видны сразу список, лента и контекст. На телефоне —
 // одна колонка: список → лента с кнопкой «назад». Состояние колонки локальное:
 // при выборе стола открывается лента, при возврате — снова список.
+//
+// Здесь же живут плавающее окно дерева участников и модалка новой темы.
 
 import { useEffect, useState } from 'react';
 import ChatView from './components/ChatView';
 import ContextPanel from './components/ContextPanel';
+import MembersTreeWindow from './components/MembersTreeWindow';
+import NewTopicDialog from './components/NewTopicDialog';
 import SettingsDialog from './components/SettingsDialog';
 import TableList from './components/TableList';
 import TopBar from './components/TopBar';
@@ -18,6 +22,8 @@ export default function App() {
   const desk = useDesk();
   const install = useInstallPrompt();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [treeOpen, setTreeOpen] = useState(false);
+  const [topicChatKey, setTopicChatKey] = useState<string | null>(null);
   const [pane, setPane] = useState<'list' | 'chat'>('list');
 
   useEffect(() => {
@@ -26,6 +32,15 @@ export default function App() {
 
   const loginUrl = `${desk.settings.siteUrl.replace(/\/+$/, '')}/auth/login`;
   const showOffline = !desk.online && desk.settings.mode === 'site';
+
+  const createTopic = () => {
+    const key = desk.createLocalChat({
+      kind: 'topic',
+      title: 'Новая тема',
+      participantIds: desk.viewer ? [desk.viewer.id] : [],
+    });
+    setTopicChatKey(key);
+  };
 
   return (
     <div className="app" data-pane={pane}>
@@ -80,10 +95,25 @@ export default function App() {
             desk.select(id);
             setPane('chat');
           }}
+          onOpen={(id) => {
+            desk.openWindow(id);
+            setPane('chat');
+          }}
+          onNewTopic={createTopic}
         />
         <ChatView desk={desk} onBack={() => setPane('list')} />
-        <ContextPanel desk={desk} />
+        <ContextPanel desk={desk} onOpenTree={() => setTreeOpen(true)} />
       </main>
+
+      {treeOpen && <MembersTreeWindow desk={desk} onClose={() => setTreeOpen(false)} />}
+
+      {topicChatKey && (
+        <NewTopicDialog
+          desk={desk}
+          chatKey={topicChatKey}
+          onClose={() => setTopicChatKey(null)}
+        />
+      )}
 
       {settingsOpen && (
         <SettingsDialog

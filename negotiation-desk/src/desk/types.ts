@@ -10,6 +10,9 @@ export type DeskMode = 'demo' | 'site';
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type DemoProfileId = 'director' | 'engineer' | 'vendor';
 
+/** Локальное окно, созданное в приложении: личный чат или новая тема. */
+export type LocalChatKind = 'private' | 'topic';
+
 export type Settings = {
   mode: DeskMode;
   /** Пусто = запросы идут на тот же origin через прокси Vite. */
@@ -19,7 +22,13 @@ export type Settings = {
   demoProfile: DemoProfileId;
   theme: ThemeMode;
 };
-export type NegotiationStatus = 'open' | 'waiting_platform' | 'resolved' | 'closed';
+export type NegotiationStatus =
+  | 'open'
+  | 'waiting'
+  | 'waiting_platform'
+  | 'in_progress'
+  | 'resolved'
+  | 'closed';
 export type MessageType = 'text' | 'file' | 'system' | 'call_started' | 'call_ended';
 
 export type ParticipantRole =
@@ -64,6 +73,8 @@ export type TableSummary = {
   last: LastMessage | null;
   createdAt: string;
   updatedAt: string;
+  /** Кто создал окно — для фильтра «Созданные мной». */
+  initiatorUserId?: string | null;
 };
 
 export type DeskSnapshot = {
@@ -99,6 +110,21 @@ export type Participant = {
   companyId: string | null;
   companyName: string | null;
   isInitiator: boolean;
+  /** Уровень допуска участника: 1 — руководство, 3 — все сотрудники. */
+  clearanceLevel: number;
+  /** Присутствие: «в столе» (пишет/на связи) или нет. */
+  present: boolean;
+};
+
+/** Строка каталога пользователей — для дерева, личных чатов и подписей. */
+export type DeskUser = {
+  id: string;
+  name: string;
+  companyName: string | null;
+  clearanceLevel: number;
+  present: boolean;
+  /** Компания-заказчик — для сигнала «клиент» в окнах. */
+  companyIsClient?: boolean;
 };
 
 export type CardContext = {
@@ -130,6 +156,31 @@ export type SendPayload = {
   text: string;
   requiredClearance: number;
   files?: string[] | null;
+};
+
+/** Локальное окно-чат, созданное в приложении (личный чат или новая тема). */
+export type LocalChatRecord = {
+  id: string;
+  kind: LocalChatKind;
+  title: string;
+  /** Собеседник личного чата. */
+  peerId: string | null;
+  participantIds: string[];
+  /** Снимок имён участников — чтобы чат не зависел от каталога. */
+  memberNames: Record<string, string>;
+  createdAt: string;
+};
+
+/** Сообщение локального окна (пока живёт в браузере). */
+export type LocalMessage = {
+  id: string;
+  windowKey: string;
+  sender: string;
+  type: MessageType;
+  text: string | null;
+  files: string[] | null;
+  requiredClearance: number;
+  createdAt: string;
 };
 
 export type ApiErrorKind = 'auth' | 'forbidden' | 'network' | 'server' | 'unknown';

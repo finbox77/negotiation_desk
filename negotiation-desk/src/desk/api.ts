@@ -147,6 +147,7 @@ function normalizeTable(raw: unknown): TableSummary {
       : null,
     createdAt: str(r.createdAt),
     updatedAt: str(r.updatedAt),
+    initiatorUserId: nullableStr(r.initiatorUserId ?? r.initiator_user),
   };
 }
 
@@ -203,6 +204,8 @@ function normalizeParticipant(raw: unknown): Participant {
     companyId: nullableStr(r.companyId),
     companyName: nullableStr(r.companyName),
     isInitiator: Boolean(r.isInitiator),
+    clearanceLevel: num(r.clearanceLevel ?? r.clearance_level, 3),
+    present: Boolean(r.present),
   };
 }
 

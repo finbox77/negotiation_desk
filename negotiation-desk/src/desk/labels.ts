@@ -4,10 +4,21 @@ import type { NegotiationStatus, ParticipantRole } from './types';
 
 export const STATUS_LABEL: Record<NegotiationStatus, string> = {
   open: 'открыт',
+  waiting: 'в ожидании',
   waiting_platform: 'ждёт платформу',
+  in_progress: 'в работе',
   resolved: 'решён',
   closed: 'закрыт',
 };
+
+/** Статусы для меню в шапке чата (в порядке списка). */
+export const STATUS_MENU: Array<{ id: NegotiationStatus; label: string; hint: string }> = [
+  { id: 'open', label: 'Открыть чат', hint: 'по умолчанию всегда открыт' },
+  { id: 'waiting', label: 'Ожидание', hint: 'ждём ответа' },
+  { id: 'in_progress', label: 'В работе', hint: 'обсуждение идёт' },
+  { id: 'resolved', label: 'Вопрос решён', hint: 'итог зафиксирован' },
+  { id: 'closed', label: 'Закрыть чат', hint: 'отправка будет недоступна' },
+];
 
 export const DISPUTE_LABEL: Record<string, string> = {
   standard_chat: 'переписка',

@@ -37,4 +37,5 @@ export const DEFAULTS = {
 export const STORAGE = {
   settings: 'simonix.desk.settings.v1',
   seen: 'simonix.desk.seen.v1',
+  local: 'simonix.desk.local.v1',
 };
