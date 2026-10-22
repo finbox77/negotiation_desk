@@ -82,10 +82,11 @@ export function Icon({
         </svg>
       );
     case 'send':
+      // Стрелка вправо вместо «самолётика» — не похоже на Telegram.
       return (
         <svg {...common}>
-          <path d="m22 2-7 20-4-9-9-4Z" />
-          <path d="M22 2 11 13" />
+          <path d="M4 12h15" />
+          <path d="m13 5 7 7-7 7" />
         </svg>
       );
     case 'users':
@@ -201,14 +202,12 @@ export function Icon({
         </svg>
       );
     case 'tree':
+      // Скромное дерево: вертикальная полоса и две горизонтальные ветви.
       return (
         <svg {...common}>
-          <path d="M12 3v6" />
-          <path d="M5 21v-4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4" />
-          <rect x="9" y="2" width="6" height="5" rx="1.5" />
-          <rect x="2" y="15" width="6" height="5" rx="1.5" />
-          <rect x="16" y="15" width="6" height="5" rx="1.5" />
-          <path d="M12 15v-4M5 15v-2h14v2" />
+          <path d="M7 3v18" />
+          <path d="M7 8h11" />
+          <path d="M7 16h8" />
         </svg>
       );
     case 'trash':

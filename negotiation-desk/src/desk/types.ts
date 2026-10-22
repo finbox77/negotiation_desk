@@ -55,6 +55,14 @@ export type LastMessage = {
   text: string;
   createdAt: string;
   fresh: boolean;
+  /** Файлы последнего сообщения (если оно файловое) — для подсказки слева. */
+  files?: string[] | null;
+};
+
+/** Своя категория чатов («виртуальная папка») из дерева категорий. */
+export type ChatCategory = {
+  id: string;
+  label: string;
 };
 
 export type TableSummary = {

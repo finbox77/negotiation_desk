@@ -101,9 +101,15 @@ export default function ChatView({
     ? desk.userById.get(desk.highlightUserId)
     : null;
 
-  const readDrop = (event: DragEvent): string | null => {
+  // На dragover данные скрыты браузером (getData пуст) — проверяем только типы;
+  // собственно данные читаем на drop.
+  const hasUserDrag = (event: DragEvent): boolean => {
     const types: string[] = Array.from(event.dataTransfer.types ?? []);
-    if (!types.includes('application/x-desk-user') && !types.includes('text/plain')) return null;
+    return types.includes('application/x-desk-user') || types.includes('text/plain');
+  };
+
+  const readDrop = (event: DragEvent): string | null => {
+    if (!hasUserDrag(event)) return null;
     return (
       event.dataTransfer.getData('application/x-desk-user') ||
       event.dataTransfer.getData('text/plain') ||
@@ -116,7 +122,7 @@ export default function ChatView({
       className={`panel chat ${dropActive ? 'is-drop' : ''}`}
       aria-label={`Стол: ${table.title}`}
       onDragOver={(event) => {
-        if (readDrop(event)) {
+        if (hasUserDrag(event)) {
           event.preventDefault();
           event.dataTransfer.dropEffect = 'link';
           setDropActive(true);
@@ -128,7 +134,7 @@ export default function ChatView({
       onDrop={(event) => {
         const userId = readDrop(event);
         setDropActive(false);
-        if (!userId || !desk.selectedId) return;
+        if (!userId || !desk.selectedId || !desk.userById.has(userId)) return;
         event.preventDefault();
         desk.bindParticipant(desk.selectedId, userId);
       }}
@@ -171,17 +177,7 @@ export default function ChatView({
 
         <button
           type="button"
-          className="icon-btn"
-          onClick={() => void desk.refresh()}
-          title="Обновить чат"
-          aria-label="Обновить чат"
-        >
-          <Icon name="refresh" className={desk.chatLoading ? 'spin' : undefined} />
-        </button>
-
-        <button
-          type="button"
-          className="icon-btn"
+          className="icon-btn chat__menu-btn"
           title="Статус и удаление чата"
           aria-label="Меню чата"
           onClick={(event) => {
@@ -200,8 +196,7 @@ export default function ChatView({
       {closed && (
         <div className="chat__access-note chat__access-note--closed">
           <Icon name="lock" size={13} />
-          Чат закрыт — отправка сообщений недоступна. Меню «≡» рядом с обновлением, чтобы снова
-          открыть.
+          Чат закрыт — отправка сообщений недоступна. Меню «≡» в шапке чата, чтобы снова открыть.
         </div>
       )}
 

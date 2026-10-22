@@ -29,6 +29,10 @@ export default function StatusMenu({
 
   useEffect(() => {
     const onDown = (event: MouseEvent) => {
+      // Диалог удаления живёт вне меню: клики по нему не должны закрывать меню
+      // на mousedown — иначе диалог размонтируется раньше click и удаление
+      // не сработает (так «новые чаты не удалялись»).
+      if (askDelete) return;
       if (ref.current && !ref.current.contains(event.target as Node)) onClose();
     };
     const onKey = (event: KeyboardEvent) => {

@@ -6,7 +6,7 @@
 // переданные ему файлы. Кнопка «Дерево участников» открывает плавающее окно
 // со связями «участники ↔ окна».
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import { dayLabel, money, plural } from '../desk/format';
 import {
@@ -31,6 +31,8 @@ export default function ContextPanel({
 }) {
   const { viewer, card, selectedTable, settings, selectedUserId, ensureMessagesIndex } = desk;
   const [menu, setMenu] = useState<{ userId: string; x: number; y: number } | null>(null);
+  /** Двойной клик по участнику — перенести его в другой чат. */
+  const [transfer, setTransfer] = useState<{ userId: string; x: number; y: number } | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
   const selectedUser = selectedUserId ? desk.userById.get(selectedUserId) : null;
 
@@ -94,6 +96,12 @@ export default function ContextPanel({
                     event.dataTransfer.setData('text/plain', person.userId);
                     event.dataTransfer.effectAllowed = 'link';
                   }}
+                  onDoubleClick={(event) => {
+                    setMenu(null);
+                    ensureMessagesIndex();
+                    setTransfer({ userId: person.userId, x: event.clientX, y: event.clientY });
+                  }}
+                  title="Двойной клик — перенести в другой чат"
                 >
                   <button
                     type="button"
@@ -160,14 +168,7 @@ export default function ContextPanel({
                   <Icon name={panelOpen ? 'chevron-down' : 'chevron'} size={12} />
                   {panelOpen ? 'Скрыть' : 'Показать'}
                 </button>
-                <button
-                  type="button"
-                  className="side-card__action"
-                  onClick={() => desk.setSelectedUserId(null)}
-                  title="Закрыть"
-                >
-                  <Icon name="close" size={12} />
-                </button>
+                {/* Крестика нет: карточка сама скрывается, если отжать участника. */}
               </h3>
 
               {panelOpen && (
@@ -287,7 +288,98 @@ export default function ContextPanel({
           onClose={() => setMenu(null)}
         />
       )}
+
+      {transfer && (
+        <TransferMenu
+          desk={desk}
+          userId={transfer.userId}
+          x={transfer.x}
+          y={transfer.y}
+          onClose={() => setTransfer(null)}
+        />
+      )}
     </aside>
+  );
+}
+
+/**
+ * Перенос участника в другой чат по двойному клику: список чатов
+ * (сначала открытые в центральном окне), выбор привязывает участника —
+ * он появится в списке участников того чата.
+ */
+function TransferMenu({
+  desk,
+  userId,
+  x,
+  y,
+  onClose,
+}: {
+  desk: DeskController;
+  userId: string;
+  x: number;
+  y: number;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const name = desk.userById.get(userId)?.name ?? 'участник';
+
+  useEffect(() => {
+    const onDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) onClose();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  const openIds = desk.windows.map((w) => w.id);
+  const targets = desk.tables
+    .filter((table) => table.id !== desk.selectedId)
+    .sort((a, b) => Number(openIds.includes(b.id)) - Number(openIds.includes(a.id)));
+
+  return (
+    <div
+      ref={ref}
+      className="ctx-menu ctx-menu--transfer"
+      style={{ left: Math.min(x, window.innerWidth - 290), top: Math.min(y, window.innerHeight - 340) }}
+      role="menu"
+      aria-label={`Перенести: ${name}`}
+    >
+      <p className="ctx-menu__title">Перенести «{name}» в чат:</p>
+      <div className="ctx-menu__scroll">
+        {targets.map((table) => {
+          const already = desk.usersOfWindow(table.id).includes(userId);
+          const isOpen = openIds.includes(table.id);
+          return (
+            <button
+              key={table.id}
+              type="button"
+              className="ctx-menu__item"
+              role="menuitem"
+              disabled={already}
+              title={table.title}
+              onClick={() => {
+                desk.bindParticipant(table.id, userId);
+                onClose();
+              }}
+            >
+              <span className={`chat-tab__dot ${desk.freshOf(table) > 0 ? 'is-unread' : ''}`} />
+              <span className="ctx-menu__grow">{table.title}</span>
+              <span className="ctx-menu__hint">
+                {already ? 'уже в чате' : isOpen ? 'открыт в центре' : ''}
+              </span>
+            </button>
+          );
+        })}
+        {targets.length === 0 && <p className="tree-note">Других чатов пока нет</p>}
+      </div>
+    </div>
   );
 }
 

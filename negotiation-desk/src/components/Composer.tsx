@@ -8,7 +8,7 @@
 // «Из кабинета» — заготовка под документы основного проекта.
 
 import { useEffect, useRef, useState } from 'react';
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { registerFile } from '../desk/fileStore';
 import { CLEARANCE_LABEL } from '../desk/labels';
 import type { DeskController } from '../desk/useDesk';
@@ -19,6 +19,8 @@ export default function Composer({ desk }: { desk: DeskController }) {
   const [clearance, setClearance] = useState(3);
   const [files, setFiles] = useState<File[]>([]);
   const [attachMenu, setAttachMenu] = useState(false);
+  /** Высота поля ввода, заданная вручную перетягиванием вверх; null — авто. */
+  const [manualHeight, setManualHeight] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -36,6 +38,7 @@ export default function Composer({ desk }: { desk: DeskController }) {
     // Сменили стол — черновик не тащим в другое окно.
     setText('');
     setFiles([]);
+    setManualHeight(null);
   }, [desk.selectedId]);
 
   useEffect(() => {
@@ -48,10 +51,47 @@ export default function Composer({ desk }: { desk: DeskController }) {
   }, [attachMenu]);
 
   const grow = () => {
+    if (manualHeight != null) return;
     const element = textareaRef.current;
     if (!element) return;
     element.style.height = 'auto';
     element.style.height = `${Math.min(element.scrollHeight, 150)}px`;
+  };
+
+  /** Потолок высоты поля — чуть больше половины центрального окна чата. */
+  const maxManualHeight = () => {
+    const chat = textareaRef.current?.closest('.chat');
+    return chat ? Math.max(120, Math.floor(chat.clientHeight * 0.55)) : 400;
+  };
+
+  /** Тянуть верхнюю кромку вверх — поле ввода растёт за счёт ленты чата. */
+  const onResizeStart = (event: ReactPointerEvent) => {
+    const element = textareaRef.current;
+    if (!element) return;
+    event.preventDefault();
+    const startY = event.clientY;
+    const startHeight = element.offsetHeight;
+    const max = maxManualHeight();
+    const onMove = (move: PointerEvent) => {
+      const next = Math.min(max, Math.max(24, startHeight + (startY - move.clientY)));
+      setManualHeight(next);
+    };
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  };
+
+  const resetHeight = () => {
+    setManualHeight(null);
+    requestAnimationFrame(() => {
+      const element = textareaRef.current;
+      if (!element) return;
+      element.style.height = 'auto';
+      element.style.height = `${Math.min(element.scrollHeight, 150)}px`;
+    });
   };
 
   const onPickFiles = (event: ChangeEvent<HTMLInputElement>) => {
@@ -74,6 +114,7 @@ export default function Composer({ desk }: { desk: DeskController }) {
     if (!ok) return;
     setText('');
     setFiles([]);
+    setManualHeight(null);
     requestAnimationFrame(() => {
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
       textareaRef.current?.focus();
@@ -103,11 +144,34 @@ export default function Composer({ desk }: { desk: DeskController }) {
         </ul>
       )}
 
+      <div
+        className="composer__resize"
+        role="separator"
+        aria-label="Изменить высоту поля ввода"
+        aria-orientation="horizontal"
+        title="Потяните вверх, чтобы увеличить поле ввода (двойной клик — сброс)"
+        tabIndex={0}
+        onPointerDown={onResizeStart}
+        onDoubleClick={resetHeight}
+        onKeyDown={(event) => {
+          if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+          event.preventDefault();
+          const current = manualHeight ?? textareaRef.current?.offsetHeight ?? 24;
+          const step = event.key === 'ArrowUp' ? 20 : -20;
+          setManualHeight(Math.min(maxManualHeight(), Math.max(24, current + step)));
+        }}
+      >
+        <span className="composer__resize-grip" aria-hidden />
+      </div>
+
       <div className="composer__box">
         <textarea
           ref={textareaRef}
           value={text}
           rows={1}
+          style={
+            manualHeight != null ? { height: manualHeight, maxHeight: 'none' } : undefined
+          }
           onChange={(event) => {
             setText(event.target.value);
             grow();

@@ -25,11 +25,19 @@ export default function ChatTabs({
   const [rollOpen, setRollOpen] = useState(false);
   const [tip, setTip] = useState<Tip>(null);
 
-  if (desk.windows.length === 0) return null;
+  // Пустая полоса той же высоты: геометрия центрального окна не «плавает»,
+  // когда открытых чатов нет.
+  if (desk.windows.length === 0) return <div className="chat-tabs chat-tabs--empty" aria-hidden />;
+
+  // Во время dragover браузер прячет данные (protected mode) — getData вернёт
+  // пустую строку. До drop можно спрашивать только типы, данные — уже на drop.
+  const hasUserDrag = (event: DragEvent): boolean => {
+    const types: string[] = Array.from(event.dataTransfer.types ?? []);
+    return types.includes('application/x-desk-user') || types.includes('text/plain');
+  };
 
   const readDrop = (event: DragEvent): string | null => {
-    const types: string[] = Array.from(event.dataTransfer.types ?? []);
-    if (!types.includes('application/x-desk-user') && !types.includes('text/plain')) return null;
+    if (!hasUserDrag(event)) return null;
     return (
       event.dataTransfer.getData('application/x-desk-user') ||
       event.dataTransfer.getData('text/plain') ||
@@ -59,7 +67,7 @@ export default function ChatTabs({
               onMouseEnter={(event) => showTip(event, window.title)}
               onMouseLeave={() => setTip(null)}
               onDragOver={(event) => {
-                if (readDrop(event)) {
+                if (hasUserDrag(event)) {
                   event.preventDefault();
                   event.dataTransfer.dropEffect = 'link';
                   setDragOverKey(window.id);
@@ -70,7 +78,7 @@ export default function ChatTabs({
                 const userId = readDrop(event);
                 setDragOverKey(null);
                 setTip(null);
-                if (!userId) return;
+                if (!userId || !desk.userById.has(userId)) return;
                 event.preventDefault();
                 onDropUser(window.id, userId);
               }}

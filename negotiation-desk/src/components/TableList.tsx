@@ -1,63 +1,56 @@
 // components/TableList.tsx — левый рельс: поиск, выборка и окна стола.
 //
 // Одинарный клик — предпросмотр окна в центре (без закрепления), двойной —
-// закрепить в мини-шапке (новые закрепления появляются там слева). Выборка
-// фильтров: «≡» перед «Все» — список всех фильтров, чипсы прокручиваются и
-// убираются крестиками.
+// закрепить в мини-шапке (новые закрепления появляются там слева). Выборка:
+// кнопка-дерево перед «Все» открывает независимое окно категорий и статусов
+// (ChatsTreeWindow); отмеченные там галочками категории/статусы — это чипсы
+// в полосе прокрутки ниже. «Все» не удаляется и показана всегда.
 
 import { useMemo, useState } from 'react';
 import { disputeLabel, statusLabel } from '../desk/labels';
 import { plural, relativeTime } from '../desk/format';
 import type { DeskController } from '../desk/useDesk';
 import type { TableSummary } from '../desk/types';
+import ChatsTreeWindow from './ChatsTreeWindow';
 import { Icon, SignalDot } from './Icons';
 
-type Filter =
-  | 'all'
-  | 'fresh'
-  | 'mine'
-  | 'clients'
-  | 'partners'
-  | 'open'
-  | 'waiting'
-  | 'in_progress'
-  | 'resolved'
-  | 'closed';
+export type FilterDef = {
+  id: string;
+  label: string;
+  kind: 'category' | 'status';
+  /** Своя категория пользователя (можно удалить). */
+  custom?: boolean;
+};
 
-const FILTERS: Array<{ id: Filter; label: string }> = [
-  { id: 'all', label: 'Все' },
-  { id: 'fresh', label: 'Новые' },
-  { id: 'mine', label: 'Созданные мной' },
-  { id: 'clients', label: 'Клиенты' },
-  { id: 'partners', label: 'Партнёры' },
-  { id: 'open', label: 'Открытые' },
-  { id: 'waiting', label: 'В ожидании' },
-  { id: 'in_progress', label: 'В работе' },
-  { id: 'resolved', label: 'Решённые' },
-  { id: 'closed', label: 'Закрытые' },
+const CATEGORY_FILTERS: FilterDef[] = [
+  { id: 'fresh', label: 'Новые', kind: 'category' },
+  { id: 'clients', label: 'Клиенты', kind: 'category' },
+  { id: 'partners', label: 'Партнёры', kind: 'category' },
+  { id: 'mine', label: 'Созданные мной', kind: 'category' },
 ];
 
-const DEFAULT_VISIBLE: Filter[] = ['all', 'fresh', 'clients', 'open'];
+const STATUS_FILTERS: FilterDef[] = [
+  { id: 'open', label: 'Открытые', kind: 'status' },
+  { id: 'waiting', label: 'В ожидании', kind: 'status' },
+  { id: 'in_progress', label: 'В работе', kind: 'status' },
+  { id: 'resolved', label: 'Решённые', kind: 'status' },
+  { id: 'closed', label: 'Закрытые', kind: 'status' },
+];
 
-function matches(table: TableSummary, filter: Filter, desk: DeskController): boolean {
-  switch (filter) {
-    case 'fresh':
-      return desk.freshOf(table) > 0;
-    case 'mine':
-      return table.initiatorUserId != null && table.initiatorUserId === desk.viewer?.id;
-    case 'clients':
-      return desk.signalOf(table) === 'client';
-    case 'partners':
-      return desk.signalOf(table) === 'team';
-    case 'open':
-    case 'waiting':
-    case 'in_progress':
-    case 'resolved':
-    case 'closed':
-      return table.status === filter;
-    default:
-      return true;
-  }
+const DEFAULT_VISIBLE: string[] = ['all', 'fresh', 'clients', 'open'];
+
+function matches(table: TableSummary, filter: string, desk: DeskController): boolean {
+  if (filter === 'all') return true;
+  if (STATUS_FILTERS.some((item) => item.id === filter)) return table.status === filter;
+  // Категории (встроенные, свои и ручные привязки) считает useDesk.
+  return desk.categoriesOf(table).includes(filter);
+}
+
+/** «Название.pdf · PDF» — для подсказки последнего сообщения-файла. */
+function fileLabel(name: string): string {
+  const dot = name.lastIndexOf('.');
+  const ext = dot > 0 && dot < name.length - 1 ? name.slice(dot + 1).toUpperCase() : '';
+  return ext ? `${name} · ${ext}` : name;
 }
 
 export default function TableList({
@@ -72,13 +65,33 @@ export default function TableList({
   onNewTopic: () => void;
 }) {
   const [query, setQuery] = useState('');
-  const [visibleFilters, setVisibleFilters] = useState<Filter[]>(DEFAULT_VISIBLE);
-  const [filter, setFilter] = useState<Filter>('all');
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [visibleFilters, setVisibleFilters] = useState<string[]>(DEFAULT_VISIBLE);
+  const [filter, setFilter] = useState<string>('all');
+  const [treeOpen, setTreeOpen] = useState(false);
 
-  const activeFilter: Filter = visibleFilters.includes(filter)
-    ? filter
-    : (visibleFilters[0] ?? 'all');
+  // Все фильтры полосы: «Все», категории (встроенные + свои), затем статусы.
+  const filterDefs: FilterDef[] = useMemo(
+    () => [
+      { id: 'all', label: 'Все', kind: 'category' },
+      ...CATEGORY_FILTERS,
+      ...desk.overlay.customCategories.map((cat): FilterDef => ({
+        id: cat.id,
+        label: cat.label,
+        kind: 'category',
+        custom: true,
+      })),
+      ...STATUS_FILTERS,
+    ],
+    [desk.overlay.customCategories],
+  );
+
+  // «Все» всегда в полосе; удалённые категории из неё выпадают сами.
+  const shownFilters: string[] = useMemo(() => {
+    const known = new Set(filterDefs.map((item) => item.id));
+    return ['all', ...visibleFilters.filter((id) => id !== 'all' && known.has(id))];
+  }, [visibleFilters, filterDefs]);
+
+  const activeFilter: string = shownFilters.includes(filter) ? filter : 'all';
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -95,21 +108,28 @@ export default function TableList({
 
   const freshTotal = desk.tables.reduce((sum, t) => sum + desk.freshOf(t), 0);
 
-  const toggleChip = (id: Filter) => {
-    setVisibleFilters((prev) => {
-      if (prev.includes(id)) {
-        const next = prev.filter((f) => f !== id);
-        return next.length > 0 ? next : ['all'];
-      }
-      return [...prev, id];
-    });
+  const toggleChip = (id: string) => {
+    if (id === 'all') return; // «Все» неудаляема
+    setVisibleFilters((prev) =>
+      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id],
+    );
+  };
+
+  const ensureChip = (id: string) => {
+    setVisibleFilters((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
+  const deleteCategory = (id: string) => {
+    desk.removeCustomCategory(id);
+    setVisibleFilters((prev) => prev.filter((f) => f !== id));
+    if (filter === id) setFilter('all');
   };
 
   return (
     <section className="panel table-panel" aria-label="Столы переговоров">
       <div className="table-panel__head">
         <div className="table-panel__title">
-          <h2>Столы</h2>
+          {/* Подписи пока нет — только число чатов. */}
           <span className="counter">{desk.tables.length}</span>
           {freshTotal > 0 && (
             <span className="counter counter--accent">
@@ -149,73 +169,42 @@ export default function TableList({
         </label>
 
         <div className="filters" role="tablist" aria-label="Выборка столов">
-          <div className="filters__menu-wrap">
-            <button
-              type="button"
-              className={`filter filter--menu ${menuOpen ? 'is-active' : ''}`}
-              onClick={() => setMenuOpen((prev) => !prev)}
-              title="Настроить выборку"
-              aria-label="Настроить выборку"
-            >
-              <span className="hamburger" aria-hidden>
-                <i />
-                <i />
-                <i />
-              </span>
-            </button>
+          <button
+            type="button"
+            className={`filter filter--menu ${treeOpen ? 'is-active' : ''}`}
+            onClick={() => setTreeOpen(true)}
+            title="Дерево: чаты, категории и статусы"
+            aria-label="Дерево чатов, категорий и статусов"
+          >
+            <Icon name="tree" size={15} />
+          </button>
 
-            {menuOpen && (
-              <>
+          {filterDefs
+            .filter((item) => shownFilters.includes(item.id))
+            .map((item) => (
+              <span key={item.id} className={`filter-chip ${activeFilter === item.id ? 'is-active' : ''}`}>
                 <button
                   type="button"
-                  className="roll-backdrop"
-                  aria-label="Закрыть меню"
-                  onClick={() => setMenuOpen(false)}
-                />
-                <div className="filters-menu" role="menu" aria-label="Выборки">
-                  <p className="tabs-roll__title">Выборка чатов</p>
-                  {FILTERS.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`filters-menu__item ${visibleFilters.includes(item.id) ? 'is-on' : ''}`}
-                      role="menuitemcheckbox"
-                      aria-checked={visibleFilters.includes(item.id)}
-                      onClick={() => toggleChip(item.id)}
-                    >
-                      <span className="filters-menu__check">
-                        {visibleFilters.includes(item.id) && <Icon name="check" size={11} />}
-                      </span>
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
-          {FILTERS.filter((item) => visibleFilters.includes(item.id)).map((item) => (
-            <span key={item.id} className={`filter-chip ${activeFilter === item.id ? 'is-active' : ''}`}>
-              <button
-                type="button"
-                className="filter-chip__label"
-                role="tab"
-                aria-selected={activeFilter === item.id}
-                onClick={() => setFilter(item.id)}
-              >
-                {item.label}
-              </button>
-              <button
-                type="button"
-                className="filter-chip__close"
-                onClick={() => toggleChip(item.id)}
-                aria-label={`Убрать «${item.label}» из выборки`}
-                title="Убрать из выборки"
-              >
-                <Icon name="close" size={11} />
-              </button>
-            </span>
-          ))}
+                  className="filter-chip__label"
+                  role="tab"
+                  aria-selected={activeFilter === item.id}
+                  onClick={() => setFilter(item.id)}
+                >
+                  {item.label}
+                </button>
+                {item.id !== 'all' && (
+                  <button
+                    type="button"
+                    className="filter-chip__close"
+                    onClick={() => toggleChip(item.id)}
+                    aria-label={`Убрать «${item.label}» из выборки`}
+                    title="Убрать из выборки"
+                  >
+                    <Icon name="close" size={11} />
+                  </button>
+                )}
+              </span>
+            ))}
         </div>
       </div>
 
@@ -250,6 +239,21 @@ export default function TableList({
           const signal = desk.signalOf(table);
           const active = table.id === desk.selectedId;
           const pinned = desk.overlay.openWindows.includes(table.id);
+
+          // Последнее сообщение: одна строка с многоточием; полный текст —
+          // в подсказке при наведении. Если отправлен файл — его название и тип.
+          const lastFiles = table.last?.files ?? [];
+          const fileStub = !table.last?.text || table.last.text === 'приложен файл';
+          const previewText = table.last
+            ? lastFiles.length > 0 && fileStub
+              ? lastFiles.join(', ')
+              : table.last.text
+            : '';
+          const previewTitle = table.last
+            ? lastFiles.length > 0
+              ? `${table.last.author}: ${fileStub ? '' : `${table.last.text} — `}${lastFiles.map(fileLabel).join(', ')}`
+              : `${table.last.author}: ${table.last.text}`
+            : undefined;
 
           return (
             <button
@@ -296,10 +300,10 @@ export default function TableList({
                   <span>{table.participants} уч.</span>
                 </span>
 
-                <span className="table-row__preview">
+                <span className="table-row__preview" title={previewTitle}>
                   {table.last ? (
                     <>
-                      <b>{table.last.author}:</b> {table.last.text}
+                      <b>{table.last.author}:</b> {previewText}
                     </>
                   ) : (
                     'сообщений пока нет'
@@ -320,6 +324,19 @@ export default function TableList({
           <SignalDot signal="client" /> клиенты
         </span>
       </footer>
+
+      {treeOpen && (
+        <ChatsTreeWindow
+          desk={desk}
+          categories={filterDefs.filter((item) => item.kind === 'category')}
+          statuses={STATUS_FILTERS}
+          shownFilters={shownFilters}
+          onToggleFilter={toggleChip}
+          onEnsureFilter={ensureChip}
+          onDeleteCategory={deleteCategory}
+          onClose={() => setTreeOpen(false)}
+        />
+      )}
     </section>
   );
 }

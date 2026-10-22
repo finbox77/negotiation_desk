@@ -104,9 +104,14 @@ export default function NewTopicDialog({
                           {user.companyName ?? 'без компании'} · допуск {user.clearanceLevel}
                         </span>
                       </span>
-                      <span className="choice__check" hidden={!checked}>
-                        <Icon name="check" size={12} />
-                      </span>
+                      {/* Галочка — только у выбранных. hidden тут не работал:
+                          display:grid у .choice__check перекрывал [hidden],
+                          и галочки виделись у всех сразу. */}
+                      {checked && (
+                        <span className="choice__check">
+                          <Icon name="check" size={12} />
+                        </span>
+                      )}
                     </button>
                   </li>
                 );

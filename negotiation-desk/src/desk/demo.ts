@@ -779,6 +779,7 @@ export function demoSnapshot(viewer: Viewer): DeskSnapshot {
           fresh:
             lastRaw.sender !== viewer.id &&
             now - Date.parse(lastRaw.createdAt) < FRESH_WINDOW_MS,
+          files: lastRaw.files ?? null,
         }
       : null;
 

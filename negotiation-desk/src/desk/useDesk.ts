@@ -31,6 +31,7 @@ import {
   loadOverlay,
   makeLocalChat,
   makeLocalMessage,
+  newCategoryId,
   saveOverlay,
   type LocalOverlay,
 } from './local';
@@ -143,6 +144,7 @@ function localSummaryOf(
           (lastRaw.type === 'file' ? 'приложен файл' : 'системное событие'),
         createdAt: lastRaw.createdAt,
         fresh: lastRaw.sender !== viewer?.id && now - Date.parse(lastRaw.createdAt) < FRESH_WINDOW_MS,
+        files: lastRaw.files ?? null,
       }
     : null;
 
@@ -481,6 +483,81 @@ export function useDesk() {
 
   const signalOf = (table: TableSummary): DeskSignal =>
     freshOf(table) > 0 ? table.signal : 'none';
+
+  /* ------------------------------ категории ------------------------------- */
+  // Встроенные категории определяются сами (новые / клиенты / партнёры /
+  // созданные мной), свои категории и ручные привязки живут в локальном слое.
+  // Чат может входить сразу в несколько категорий.
+
+  const builtinCategoriesOf = useCallback(
+    (table: TableSummary): string[] => {
+      const result: string[] = [];
+      if (freshOf(table) > 0) result.push('fresh');
+      const signal = freshOf(table) > 0 ? table.signal : 'none';
+      if (signal === 'client') result.push('clients');
+      if (signal === 'team') result.push('partners');
+      if (table.initiatorUserId != null && table.initiatorUserId === viewer?.id) {
+        result.push('mine');
+      }
+      return result;
+    },
+    [freshOf, viewer],
+  );
+
+  /** Все категории чата: встроенные (автоматом) + отнесённые вручную. */
+  const categoriesOf = useCallback(
+    (table: TableSummary): string[] => {
+      const manual = overlay.chatCategories[table.id] ?? [];
+      return [...new Set([...builtinCategoriesOf(table), ...manual])];
+    },
+    [builtinCategoriesOf, overlay.chatCategories],
+  );
+
+  /** Создать свою категорию («виртуальную папку»). Возвращает id или null. */
+  const addCustomCategory = useCallback((label: string): string | null => {
+    const name = label.trim();
+    if (!name) return null;
+    const existing = overlayRef.current.customCategories.find(
+      (c) => c.label.toLowerCase() === name.toLowerCase(),
+    );
+    if (existing) return existing.id;
+    const category = { id: newCategoryId(), label: name };
+    setOverlay((prev) => ({
+      ...prev,
+      customCategories: [...prev.customCategories, category],
+    }));
+    setNotice(`Категория «${name}» создана`);
+    return category.id;
+  }, []);
+
+  /** Удалить свою категорию и все её привязки («Все» и встроенные не удаляются). */
+  const removeCustomCategory = useCallback((categoryId: string) => {
+    setOverlay((prev) => {
+      const chatCategories: Record<string, string[]> = {};
+      for (const [chatId, ids] of Object.entries(prev.chatCategories)) {
+        chatCategories[chatId] = ids.filter((id) => id !== categoryId);
+      }
+      return {
+        ...prev,
+        customCategories: prev.customCategories.filter((c) => c.id !== categoryId),
+        chatCategories,
+      };
+    });
+    setNotice('Категория удалена');
+  }, []);
+
+  /** Отнести чат к категории вручную (или убрать ручную привязку). */
+  const setChatCategory = useCallback((chatId: string, categoryId: string, on: boolean) => {
+    setOverlay((prev) => {
+      const current = prev.chatCategories[chatId] ?? [];
+      const next = on
+        ? current.includes(categoryId)
+          ? current
+          : [...current, categoryId]
+        : current.filter((id) => id !== categoryId);
+      return { ...prev, chatCategories: { ...prev.chatCategories, [chatId]: next } };
+    });
+  }, []);
 
   /* -------------------------------- таблицы -------------------------------- */
 
@@ -1070,9 +1147,12 @@ export function useDesk() {
         delete removedMembers[windowKey];
         const chats = { ...prev.chats };
         delete chats[windowKey];
+        const chatCategories = { ...prev.chatCategories };
+        delete chatCategories[windowKey];
         return {
           ...prev,
           chats,
+          chatCategories,
           messages: local
             ? prev.messages.filter((m) => m.windowKey !== windowKey)
             : prev.messages,
@@ -1249,6 +1329,13 @@ export function useDesk() {
     usersOfWindow,
     filesToUser,
     countOf,
+
+    /* категории чатов */
+    builtinCategoriesOf,
+    categoriesOf,
+    addCustomCategory,
+    removeCustomCategory,
+    setChatCategory,
 
     /* локальные чаты */
     createLocalChat,

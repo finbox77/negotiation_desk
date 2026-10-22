@@ -80,8 +80,8 @@ export default function TopBar({
         type="button"
         className="icon-btn icon-btn--on-dark"
         onClick={() => void refresh()}
-        title="Обновить стол"
-        aria-label="Обновить"
+        title="Обновить стол переговоров"
+        aria-label="Обновить стол переговоров"
       >
         <Icon name="refresh" className={loading ? 'spin' : undefined} />
       </button>

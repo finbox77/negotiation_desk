@@ -143,6 +143,7 @@ function normalizeTable(raw: unknown): TableSummary {
           text: str(lastRaw.text, 'сообщение'),
           createdAt: str(lastRaw.createdAt),
           fresh: Boolean(lastRaw.fresh),
+          files: Array.isArray(lastRaw.files) ? lastRaw.files.map((f) => String(f)) : null,
         }
       : null,
     createdAt: str(r.createdAt),

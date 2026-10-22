@@ -32,6 +32,9 @@ export default function ParticipantMenu({
 
   useEffect(() => {
     const onDown = (event: MouseEvent) => {
+      // Диалог очистки — вне меню, клики по нему не должны закрывать меню
+      // раньше, чем сработает click (как было с удалением чата).
+      if (clearOpen) return;
       if (ref.current && !ref.current.contains(event.target as Node)) onClose();
     };
     const onKey = (event: KeyboardEvent) => {

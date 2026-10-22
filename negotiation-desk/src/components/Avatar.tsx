@@ -38,7 +38,7 @@ export default function Avatar({
         background: avatarColor(name),
         fontSize: Math.max(9, Math.round(size * 0.32)),
         '--avatar-ring': ring,
-        '--avatar-ring-w': '1.5px',
+        '--avatar-ring-w': '1px',
       } as CSSProperties}
       title={presence === 'none' ? name : `${name} · ${presence === 'in' ? 'в столе' : 'не в столе'}`}
       aria-hidden

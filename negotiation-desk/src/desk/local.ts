@@ -8,6 +8,7 @@
 // синхронизации с API — контракт точек стыковки помечен комментариями SYNC.
 
 import type {
+  ChatCategory,
   LocalChatKind,
   LocalChatRecord,
   LocalMessage,
@@ -34,6 +35,10 @@ export type LocalOverlay = {
   openWindows: string[];
   /** Активное окно. */
   activeWindow: string | null;
+  /** Свои категории чатов («виртуальные папки») из дерева категорий. */
+  customCategories: ChatCategory[];
+  /** Ручное отнесение чата к категориям: чат → id категорий. */
+  chatCategories: Record<string, string[]>;
 };
 
 const EMPTY: LocalOverlay = {
@@ -46,6 +51,8 @@ const EMPTY: LocalOverlay = {
   statusOf: {},
   openWindows: [],
   activeWindow: null,
+  customCategories: [],
+  chatCategories: {},
 };
 
 export function loadOverlay(scope: string): LocalOverlay {
@@ -65,6 +72,8 @@ export function loadOverlay(scope: string): LocalOverlay {
       statusOf: saved.statusOf ?? {},
       openWindows: Array.isArray(saved.openWindows) ? saved.openWindows : [],
       activeWindow: typeof saved.activeWindow === 'string' ? saved.activeWindow : null,
+      customCategories: Array.isArray(saved.customCategories) ? saved.customCategories : [],
+      chatCategories: saved.chatCategories ?? {},
     };
   } catch {
     // Битые данные не должны ронять приложение.
@@ -89,6 +98,10 @@ export function newLocalChatId(): string {
 
 export function newMessageId(): string {
   return `lm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+export function newCategoryId(): string {
+  return `cat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
 export function makeLocalChat(input: {

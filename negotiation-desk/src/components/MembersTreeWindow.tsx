@@ -177,7 +177,11 @@ export default function MembersTreeWindow({
                   <button
                     type="button"
                     className={`tree-row ${selChat === window.id ? 'is-selected' : ''} ${lit ? 'is-lit' : ''}`}
-                    onClick={() => setSelChat(selChat === window.id ? null : window.id)}
+                    onClick={() => {
+                      // Один выбор за раз: выбрали окно — выбор участника снят.
+                      setSelUser(null);
+                      setSelChat(selChat === window.id ? null : window.id);
+                    }}
                     onDoubleClick={() => {
                       desk.openWindow(window.id);
                       onClose();
@@ -217,7 +221,11 @@ export default function MembersTreeWindow({
                     <button
                       type="button"
                       className="tree-row__pick"
-                      onClick={() => setSelUser(selUser === user.id ? null : user.id)}
+                      onClick={() => {
+                        // Один выбор за раз: выбрали участника — выбор окна снят.
+                        setSelChat(null);
+                        setSelUser(selUser === user.id ? null : user.id);
+                      }}
                       title="Показать окна участника"
                     >
                       <Avatar name={user.name} size={24} presence={user.present ? 'in' : 'out'} />
